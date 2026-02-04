@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eric Blanchard - Medical ID</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a0b;
+            --bg-card: #141416;
+            --bg-card-hover: #1a1a1d;
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent-red: #ef4444;
+            --accent-red-glow: rgba(239, 68, 68, 0.3);
+            --accent-blue: #3b82f6;
+            --accent-green: #22c55e;
+            --accent-amber: #f59e0b;
+            --border: #27272a;
+            --border-light: #3f3f46;
+        }
+
+        body {
+            font-family: 'DM Sans', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        /* ==================== */
+        /* PIN SCREEN STYLES    */
+        /* ==================== */
+        .pin-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .pin-screen.hidden {
+            display: none;
+        }
+
+        .pin-logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--accent-red) 0%, #dc2626 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            box-shadow: 0 0 40px var(--accent-red-glow);
+        }
+
+        .pin-logo svg {
+            width: 40px;
+            height: 40px;
+            color: white;
+        }
+
+        .pin-title {
+            font-family: 'Space Mono', monospace;
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .pin-subtitle {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 32px;
+            text-align: center;
+        }
+
+        .pin-input-container {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .pin-digit {
+            width: 52px;
+            height: 64px;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-family: 'Space Mono', monospace;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-align: center;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .pin-digit:focus {
+            border-color: var(--accent-red);
+            box-shadow: 0 0 0 4px var(--accent-red-glow);
+        }
+
+        .pin-digit.filled {
+            border-color: var(--accent-green);
+        }
+
+        .pin-digit.error {
+            border-color: var(--accent-red);
+            animation: shake 0.5s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+
+        .pin-error {
+            color: var(--accent-red);
+            font-size: 14px;
+            margin-bottom: 16px;
+            height: 20px;
+        }
+
+        .pin-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .emergency-bypass {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .emergency-bypass-text {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .emergency-call-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--accent-red);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .emergency-call-btn:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+        }
+
+        .emergency-call-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* ==================== */
+        /* MAIN CONTENT STYLES  */
+        /* ==================== */
+        .main-content {
+            display: none;
+        }
+
+        .main-content.visible {
+            display: block;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+
+        /* Emergency Header */
+        .emergency-header {
+            background: linear-gradient(135deg, var(--accent-red) 0%, #dc2626 100%);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 0 40px var(--accent-red-glow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .emergency-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(255,255,255,0.03) 10px,
+                rgba(255,255,255,0.03) 20px
+            );
+        }
+
+        .emergency-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0,0,0,0.2);
+            padding: 6px 14px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            position: relative;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: #fff;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        .patient-name {
+            font-family: 'Space Mono', monospace;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            position: relative;
+        }
+
+        .patient-dob {
+            font-size: 14px;
+            opacity: 0.9;
+            position: relative;
+        }
+
+        /* Contact Buttons */
+        .contact-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .contact-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 16px 20px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .contact-btn.call {
+            background: var(--accent-green);
+            color: #000;
+        }
+
+        .contact-btn.call:hover {
+            background: #16a34a;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(34, 197, 94, 0.3);
+        }
+
+        .contact-btn.text {
+            background: var(--accent-blue);
+            color: #fff;
+        }
+
+        .contact-btn.text:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+        }
+
+        .contact-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Info Cards */
+        .info-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-icon.red { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+        .card-icon.blue { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+        .card-icon.amber { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); }
+        .card-icon.green { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
+
+        .card-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .info-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .info-value {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            text-align: right;
+        }
+
+        .info-value.highlight {
+            color: var(--accent-red);
+            font-weight: 600;
+        }
+
+        /* Tag Lists */
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tag {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--accent-red);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .tag.medication {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
+            color: var(--accent-blue);
+        }
+
+        .tag.condition {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: rgba(245, 158, 11, 0.3);
+            color: var(--accent-amber);
+        }
+
+        /* Notes Section */
+        .notes-content {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        /* Emergency Contacts */
+        .emergency-contact {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .emergency-contact:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .contact-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .contact-name {
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .contact-relation {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .contact-quick-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .quick-action {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .quick-action.call-small {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--accent-green);
+        }
+
+        .quick-action.text-small {
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--accent-blue);
+        }
+
+        .quick-action:hover {
+            transform: scale(1.1);
+        }
+
+        .quick-action svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* QR Code Section */
+        .qr-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .qr-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        #qrcode {
+            display: inline-block;
+            padding: 16px;
+            background: #fff;
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+
+        #qrcode img {
+            display: block;
+        }
+
+        .qr-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-text {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .last-updated {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .main-content.visible .emergency-header { animation: fadeInUp 0.5s ease; }
+        .main-content.visible .contact-actions { animation: fadeInUp 0.5s ease 0.1s both; }
+        .main-content.visible .info-card:nth-of-type(1) { animation: fadeInUp 0.5s ease 0.2s both; }
+        .main-content.visible .info-card:nth-of-type(2) { animation: fadeInUp 0.5s ease 0.3s both; }
+        .main-content.visible .info-card:nth-of-type(3) { animation: fadeInUp 0.5s ease 0.4s both; }
+        .main-content.visible .info-card:nth-of-type(4) { animation: fadeInUp 0.5s ease 0.5s both; }
+        .main-content.visible .info-card:nth-of-type(5) { animation: fadeInUp 0.5s ease 0.6s both; }
+        .main-content.visible .info-card:nth-of-type(6) { animation: fadeInUp 0.5s ease 0.7s both; }
+        .main-content.visible .qr-section { animation: fadeInUp 0.5s ease 0.8s both; }
+    </style>
+</head>
+<body>
+
+    <!-- ==================== -->
+    <!-- PIN ENTRY SCREEN     -->
+    <!-- ==================== -->
+    <div class="pin-screen" id="pinScreen">
+        <div class="pin-logo">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+            </svg>
+        </div>
+        <h1 class="pin-title">ERIC BLANCHARD</h1>
+        <p class="pin-subtitle">Enter PIN to view medical information</p>
+        
+        <div class="pin-input-container">
+            <input type="tel" class="pin-digit" maxlength="1" data-index="0" inputmode="numeric" pattern="[0-9]*">
+            <input type="tel" class="pin-digit" maxlength="1" data-index="1" inputmode="numeric" pattern="[0-9]*">
+            <input type="tel" class="pin-digit" maxlength="1" data-index="2" inputmode="numeric" pattern="[0-9]*">
+            <input type="tel" class="pin-digit" maxlength="1" data-index="3" inputmode="numeric" pattern="[0-9]*">
+        </div>
+        
+        <p class="pin-error" id="pinError"></p>
+        
+        <p class="pin-hint">PIN: 1234 (change this in the code)</p>
+
+        <div class="emergency-bypass">
+            <p class="emergency-bypass-text">In case of emergency, call directly:</p>
+            <!-- UPDATE: Emergency contact phone number -->
+            <a href="tel:+15559876543" class="emergency-call-btn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                </svg>
+                Call Emergency Contact
+            </a>
+        </div>
+    </div>
+
+    <!-- ==================== -->
+    <!-- MAIN MEDICAL INFO    -->
+    <!-- ==================== -->
+    <div class="main-content" id="mainContent">
+        <div class="container">
+            <!-- Emergency Header -->
+            <div class="emergency-header">
+                <div class="emergency-badge">
+                    <span class="pulse-dot"></span>
+                    Medical ID
+                </div>
+                <!-- UPDATE: Patient name -->
+                <h1 class="patient-name">ERIC BLANCHARD</h1>
+                <!-- UPDATE: Date of birth and blood type -->
+                <p class="patient-dob">DOB: January 15, 1965 • Blood Type: O+</p>
+            </div>
+
+            <!-- Quick Contact Buttons -->
+            <!-- UPDATE: Primary contact phone number (both links) -->
+            <div class="contact-actions">
+                <a href="tel:+15559876543" class="contact-btn call">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                    </svg>
+                    Call
+                </a>
+                <a href="sms:+15559876543" class="contact-btn text">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                    </svg>
+                    Text
+                </a>
+            </div>
+
+            <!-- Allergies -->
+            <!-- UPDATE: Add/remove allergy tags -->
+            <div class="info-card">
+                <div class="card-header">
+                    <div class="card-icon red">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                    </div>
+                    <h2 class="card-title">Allergies</h2>
+                </div>
+                <div class="tag-list">
+                    <span class="tag">Penicillin</span>
+                    <span class="tag">Sulfa Drugs</span>
+                    <span class="tag">Shellfish</span>
+                </div>
+            </div>
+
+            <!-- Medical Conditions -->
+            <!-- UPDATE: Add/remove condition tags -->
+            <div class="info-card">
+                <div class="card-header">
+                    <div class="card-icon amber">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                        </svg>
+                    </div>
+                    <h2 class="card-title">Medical Conditions</h2>
+                </div>
+                <div class="tag-list">
+                    <span class="tag condition">Type 2 Diabetes</span>
+                    <span class="tag condition">Hypertension</span>
+                    <span class="tag condition">Atrial Fibrillation</span>
+                </div>
+            </div>
+
+            <!-- Current Medications -->
+            <!-- UPDATE: Add/remove medications and dosages -->
+            <div class="info-card">
+                <div class="card-header">
+                    <div class="card-icon blue">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                        </svg>
+                    </div>
+                    <h2 class="card-title">Current Medications</h2>
+                </div>
+                <div class="info-list">
+                    <div class="info-item">
+                        <span class="info-label">Metformin</span>
+                        <span class="info-value">500mg twice daily</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Lisinopril</span>
+                        <span class="info-value">10mg once daily</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Eliquis</span>
+                        <span class="info-value">5mg twice daily</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Atorvastatin</span>
+                        <span class="info-value">20mg at bedtime</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Medical Notes -->
+            <!-- UPDATE: Important notes and special instructions -->
+            <div class="info-card">
+                <div class="card-header">
+                    <div class="card-icon green">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                    </div>
+                    <h2 class="card-title">Important Notes</h2>
+                </div>
+                <div class="notes-content">
+                    <p>Pacemaker implanted (2022). Do not perform MRI without cardiologist consultation. Patient has a history of vasovagal syncope. In case of emergency, contact primary care physician Dr. Smith at (555) 987-6543.</p>
+                </div>
+            </div>
+
+            <!-- Emergency Contacts -->
+            <!-- UPDATE: Contact names, relationships, and phone numbers -->
+            <div class="info-card">
+                <div class="card-header">
+                    <div class="card-icon red">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                    </div>
+                    <h2 class="card-title">Emergency Contacts</h2>
+                </div>
+                
+                <div class="emergency-contact">
+                    <div class="contact-info">
+                        <span class="contact-name">Jane Blanchard</span>
+                        <span class="contact-relation">Wife</span>
+                    </div>
+                    <div class="contact-quick-actions">
+                        <a href="tel:+15559876543" class="quick-action call-small">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                            </svg>
+                        </a>
+                        <a href="sms:+15559876543" class="quick-action text-small">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="emergency-contact">
+                    <div class="contact-info">
+                        <span class="contact-name">Michael Blanchard</span>
+                        <span class="contact-relation">Son</span>
+                    </div>
+                    <div class="contact-quick-actions">
+                        <a href="tel:+15551112222" class="quick-action call-small">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                            </svg>
+                        </a>
+                        <a href="sms:+15551112222" class="quick-action text-small">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Physician Info -->
+            <!-- UPDATE: Healthcare provider information -->
+            <div class="info-card">
+                <div class="card-header">
+                    <div class="card-icon blue">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <h2 class="card-title">Healthcare Providers</h2>
+                </div>
+                <div class="info-list">
+                    <div class="info-item">
+                        <span class="info-label">Primary Care</span>
+                        <span class="info-value">Dr. Sarah Smith</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Cardiologist</span>
+                        <span class="info-value">Dr. James Wilson</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Pharmacy</span>
+                        <span class="info-value">CVS #1234</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Insurance</span>
+                        <span class="info-value">Blue Cross #12345678</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- QR Code Section -->
+            <div class="qr-section">
+                <h3 class="qr-title">Scan to Access This Page</h3>
+                <div id="qrcode"></div>
+                <p class="qr-hint">Print this QR code for wallet or medical bracelet</p>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+                <p class="footer-text">Emergency Medical Information for Eric Blanchard</p>
+                <p class="last-updated">Last Updated: February 4, 2026</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================
+        // CONFIGURATION
+        // =====================
+        // UPDATE: Change this PIN to something secure
+        const CORRECT_PIN = "1234";
+        
+        // =====================
+        // PIN FUNCTIONALITY
+        // =====================
+        const pinDigits = document.querySelectorAll('.pin-digit');
+        const pinError = document.getElementById('pinError');
+        const pinScreen = document.getElementById('pinScreen');
+        const mainContent = document.getElementById('mainContent');
+
+        // Focus first input on load
+        pinDigits[0].focus();
+
+        // Handle input
+        pinDigits.forEach((digit, index) => {
+            digit.addEventListener('input', (e) => {
+                const value = e.target.value;
+                
+                // Only allow numbers
+                if (!/^\d*$/.test(value)) {
+                    e.target.value = '';
+                    return;
+                }
+
+                if (value.length === 1) {
+                    digit.classList.add('filled');
+                    
+                    // Move to next input
+                    if (index < pinDigits.length - 1) {
+                        pinDigits[index + 1].focus();
+                    }
+                    
+                    // Check if all digits are filled
+                    checkPin();
+                }
+            });
+
+            digit.addEventListener('keydown', (e) => {
+                // Handle backspace
+                if (e.key === 'Backspace') {
+                    if (digit.value === '' && index > 0) {
+                        pinDigits[index - 1].focus();
+                        pinDigits[index - 1].value = '';
+                        pinDigits[index - 1].classList.remove('filled');
+                    } else {
+                        digit.classList.remove('filled');
+                    }
+                }
+            });
+
+            // Select all on focus for easy correction
+            digit.addEventListener('focus', () => {
+                digit.select();
+            });
+        });
+
+        function checkPin() {
+            const enteredPin = Array.from(pinDigits).map(d => d.value).join('');
+            
+            if (enteredPin.length === 4) {
+                if (enteredPin === CORRECT_PIN) {
+                    // Correct PIN - show content
+                    pinScreen.classList.add('hidden');
+                    mainContent.classList.add('visible');
+                    generateQRCode();
+                } else {
+                    // Wrong PIN - shake and clear
+                    pinError.textContent = 'Incorrect PIN. Please try again.';
+                    pinDigits.forEach(digit => {
+                        digit.classList.add('error');
+                        digit.classList.remove('filled');
+                    });
+                    
+                    setTimeout(() => {
+                        pinDigits.forEach(digit => {
+                            digit.value = '';
+                            digit.classList.remove('error');
+                        });
+                        pinDigits[0].focus();
+                    }, 500);
+                }
+            }
+        }
+
+        // =====================
+        // QR CODE GENERATION
+        // =====================
+        function generateQRCode() {
+            const qrcodeContainer = document.getElementById('qrcode');
+            if (qrcodeContainer && !qrcodeContainer.hasChildNodes()) {
+                // UPDATE: Replace with your actual GitHub Pages URL after deployment
+                const pageUrl = window.location.href || "https://YOUR-USERNAME.github.io/medical-id/";
+                
+                new QRCode(qrcodeContainer, {
+                    text: pageUrl,
+                    width: 150,
+                    height: 150,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            }
+        }
+    </script>
+</body>
+</html>
